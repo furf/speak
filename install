@@ -1,0 +1,82 @@
+#!/usr/bin/env node
+var fs = require('fs');
+var path = require('path');
+var spawn = require('child_process').spawn;
+
+var appName = 'speak';
+var pathToLocal = '/usr/local/';
+var pathToLocalBin = path.join(pathToLocal, 'bin', appName);
+var pathToLocalLib = path.join(pathToLocal, 'lib', appName);
+
+
+fs.exists(pathToLocalBin, function(binExists) {
+  if (binExists) {
+    console.log('%s already exists.', pathToLocalBin);
+  } else {
+    fs.exists(pathToLocalLib, function(libExists) {
+      if (libExists) {
+        console.log('%s already exists.', pathToLocalLib);
+      } else {
+        install();
+      }
+    });
+  }
+});
+
+function install() {
+
+  var pathToBin = path.join(__dirname, 'bin', appName);
+  var pathToLib = path.join(__dirname, 'lib', appName);
+
+  // Attempt to copy binary
+  var copyBin = spawn('cp', [pathToBin, pathToLocalBin]);
+
+  // Handle copy binary error
+  copyBin.stderr.on('data', function (data) {
+    console.log('Error copying %s to %s', pathToBin, pathToLocalBin);
+  });
+
+  // Handle copy binary close
+  copyBin.on('close', function (code) {
+
+    // Exit with error
+    if (code) process.exit(code);
+
+    // Attempt to copy lib directory
+    var copyLib = spawn('cp', ['-r', pathToLib, pathToLocalLib]);
+
+    // Handle copy lib error
+    copyLib.stderr.on('data', function (data) {
+      console.log('Error copying %s to %s', pathToLib, pathToLocalLib);
+
+      // Clean up binary install
+      var rmBin = spawn('rm', [pathToLocalBin]);
+
+      rmBin.stderr.on('data', function (data) {
+        console.log('Error removing %s', pathToLocalBin);
+      });
+
+      rmBin.on('close', function (code) {
+
+        // Exit with error
+        if (code) process.exit(code);
+
+        // Exit proudly with success
+        console.log('Successfully removed %s', pathToLocalBin);
+      });
+
+    });
+
+    copyLib.on('close', function (code) {
+
+      // Exit with error
+      if (code) process.exit(code);
+
+      // Exit proudly with success
+      console.log('Successfully installed %s', appName);
+    });
+
+  });
+}
+
+// PS – This installer is lame. ~ furf
